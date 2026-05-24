@@ -1,10 +1,12 @@
 {
-  "name": "backend",
+  "name": "stanchat",
   "version": "1.0.0",
-  "description": "",
+  "description": "Stanchat student forum backend and frontend",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "node --check index.js && node --check routes/auth.js && node --check routes/posts.js && node --check routes/users.js && node --check public/app.js"
   },
   "keywords": [],
   "author": "",

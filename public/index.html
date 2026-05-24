@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stanchat</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="left-rail" aria-label="Primary">
+        <a class="brand" href="/" aria-label="Stanchat home">
+          <span class="brand-mark">S</span>
+          <span>
+            <strong>Stanchat</strong>
+            <small>College forum</small>
+          </span>
+        </a>
+
+        <nav class="nav-stack" id="sideFilters" aria-label="Post filters"></nav>
+
+        <div class="campus-card">
+          <img src="/assets/campus-forum.svg" alt="" />
+          <div>
+            <strong>Built for student decisions</strong>
+            <span>Admissions, campus life, majors, housing, and career talk in one feed.</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <button class="icon-button menu-button" id="menuButton" type="button" aria-label="Open filters">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="mobile-brand">
+            <span class="brand-mark">S</span>
+            <strong>Stanchat</strong>
+          </div>
+          <label class="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input id="searchInput" type="search" placeholder="Search posts, majors, colleges..." autocomplete="off" />
+          </label>
+          <div class="topbar-actions" id="topbarActions"></div>
+        </header>
+
+        <section class="mobile-filter-panel" id="mobileFilters" aria-label="Mobile filters"></section>
+
+        <section class="welcome-band">
+          <div>
+            <p class="eyebrow">College voices, sorted</p>
+            <h1>Ask, compare, and learn from students already there.</h1>
+          </div>
+          <div class="welcome-metrics" id="welcomeMetrics"></div>
+        </section>
+
+        <section class="compose-card" id="composeCard"></section>
+
+        <section class="feed-tools">
+          <div>
+            <p class="eyebrow" id="activeFilterLabel">All posts</p>
+            <h2>Student feed</h2>
+          </div>
+          <div class="tool-row">
+            <select id="sortSelect" aria-label="Sort posts">
+              <option value="hot">Most voted</option>
+              <option value="new">Newest</option>
+              <option value="old">Oldest</option>
+            </select>
+            <button class="ghost-button" id="refreshButton" type="button">Refresh</button>
+          </div>
+        </section>
+
+        <section class="feed-list" id="feedList" aria-live="polite"></section>
+      </main>
+
+      <aside class="right-rail">
+        <section class="side-panel" id="profilePanel"></section>
+        <section class="side-panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Trending</p>
+            <h2>Campus lanes</h2>
+          </div>
+          <div class="trend-list" id="trendList"></div>
+        </section>
+        <section class="side-panel values-panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Stanchat style</p>
+            <h2>Better answers</h2>
+          </div>
+          <ul>
+            <li><span>1</span> Name the college or program.</li>
+            <li><span>2</span> Share real context, not vague takes.</li>
+            <li><span>3</span> Be useful to the next applicant.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <div class="modal" id="authModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-panel auth-panel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button class="close-button" type="button" data-close-modal aria-label="Close">×</button>
+        <div class="modal-copy">
+          <p class="eyebrow" id="authEyebrow">Welcome back</p>
+          <h2 id="authTitle">Log in to Stanchat</h2>
+        </div>
+        <form id="authForm" class="stacked-form">
+          <label id="usernameField">
+            <span>Username</span>
+            <input id="authUsername" name="username" type="text" autocomplete="username" />
+          </label>
+          <label>
+            <span>Email</span>
+            <input id="authEmail" name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="authPassword" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <p class="form-message" id="authMessage"></p>
+          <button class="primary-button" id="authSubmit" type="submit">Log in</button>
+        </form>
+        <button class="text-button" id="authModeToggle" type="button">Create a new account</button>
+      </section>
+    </div>
+
+    <div class="modal" id="postModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-post></div>
+      <article class="modal-panel post-detail" id="postDetail" role="dialog" aria-modal="true"></article>
+    </div>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
