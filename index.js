@@ -17,11 +17,8 @@ app.use(express.json());
 app.use('/api/posts', postsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
-app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/health', (req, res) => {
-  res.json({ message: 'StanChat backend is alive!' });
-});
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

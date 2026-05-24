@@ -168,7 +168,7 @@ async function submitPost(event) {
     return;
   }
 
-  const form = event.currentTarget;
+  const form = event.target;
   const formData = new FormData(form);
   const title = String(formData.get('title') || '').trim();
   const content = String(formData.get('content') || '').trim();
