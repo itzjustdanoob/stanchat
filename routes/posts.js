@@ -1,6 +1,42 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
+const postVotes = new Map();
+
+function getVoteKey(postId, userId) {
+  return `${postId}:${userId}`;
+}
+
+async function voteOnPost(req, res, delta) {
+  const { user_id } = req.body;
+  const postId = req.params.id;
+
+  if (!user_id) return res.status(400).json({ error: 'user_id required' });
+
+  const { data: post, error: fetchError } = await supabase
+    .from('posts')
+    .select('votes')
+    .eq('id', postId)
+    .single();
+
+  if (fetchError) return res.status(404).json({ error: 'Post not found' });
+
+  const voteKey = getVoteKey(postId, user_id);
+  if (postVotes.has(voteKey)) {
+    return res.status(409).json({ error: 'You already voted on this post' });
+  }
+
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ votes: Number(post.votes || 0) + delta })
+    .eq('id', postId)
+    .select();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  postVotes.set(voteKey, delta > 0 ? 'up' : 'down');
+  res.json(data[0]);
+}
 
 // GET all posts
 router.get('/', async (req, res) => {
@@ -39,42 +75,12 @@ router.post('/', async (req, res) => {
 
 // UPVOTE post
 router.post('/:id/vote', async (req, res) => {
-  const { data: post, error: fetchError } = await supabase
-    .from('posts')
-    .select('votes')
-    .eq('id', req.params.id)
-    .single();
-
-  if (fetchError) return res.status(404).json({ error: 'Post not found' });
-
-  const { data, error } = await supabase
-    .from('posts')
-    .update({ votes: post.votes + 1 })
-    .eq('id', req.params.id)
-    .select();
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data[0]);
+  await voteOnPost(req, res, 1);
 });
 
 // DOWNVOTE post
 router.post('/:id/downvote', async (req, res) => {
-  const { data: post, error: fetchError } = await supabase
-    .from('posts')
-    .select('votes')
-    .eq('id', req.params.id)
-    .single();
-
-  if (fetchError) return res.status(404).json({ error: 'Post not found' });
-
-  const { data, error } = await supabase
-    .from('posts')
-    .update({ votes: post.votes - 1 })
-    .eq('id', req.params.id)
-    .select();
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data[0]);
+  await voteOnPost(req, res, -1);
 });
 
 // GET comments for a post

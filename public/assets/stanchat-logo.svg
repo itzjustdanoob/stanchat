@@ -1,0 +1,26 @@
+<svg width="720" height="420" viewBox="0 0 720 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Stanchat</title>
+  <desc id="desc">Stanchat logo with college chat bubbles, graduation cap, and pencil.</desc>
+  <rect width="720" height="420" rx="28" fill="#F3F7F8"/>
+  <g transform="translate(250 64)">
+    <path d="M52 35H167C192 35 212 55 212 80V124C212 150 192 170 167 170H136L136 212L87 170H52C27 170 7 150 7 124V80C7 55 27 35 52 35Z" fill="#1D94CC"/>
+    <path d="M36 35H151C176 35 196 55 196 80V124C196 150 176 170 151 170H102L55 211V170H36C12 170 -8 150 -8 124V80C-8 55 12 35 36 35Z" fill="#E94357"/>
+    <path d="M36 35H151C176 35 196 55 196 80V124C196 150 176 170 151 170H102L55 211V170H36C12 170 -8 150 -8 124V80C-8 55 12 35 36 35Z" fill="#F5A133" clip-path="url(#left-corner)"/>
+    <path d="M72 35H167C192 35 212 55 212 80V124C212 150 192 170 167 170H136L136 212L87 170H72C97 150 111 130 111 102C111 72 96 50 72 35Z" fill="#0D5591" opacity="0.88"/>
+    <path d="M150 35H167C192 35 212 55 212 80V124C212 150 192 170 167 170H136L136 212L87 170H150C175 170 195 150 195 124V80C195 55 175 35 150 35Z" fill="#229DD4"/>
+    <path d="M52 55H170C183 55 194 66 194 79V126C194 139 183 150 170 150H119L70 190V150H52C39 150 28 139 28 126V79C28 66 39 55 52 55Z" fill="#FFFFFF"/>
+    <path d="M79 94L111 82L145 94L111 107L79 94Z" fill="#18324B"/>
+    <path d="M91 102V126C102 137 124 138 135 126V102L111 111L91 102Z" fill="#18324B"/>
+    <path d="M78 97V124" stroke="#18324B" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="78" cy="129" r="5" fill="#18324B"/>
+    <path d="M159 118L196 81L212 97L175 134L154 139L159 118Z" fill="#F07B3F"/>
+    <path d="M196 81L203 74C207 70 214 70 218 74L219 75C223 79 223 86 219 90L212 97L196 81Z" fill="#1D94CC"/>
+    <path d="M159 118L175 134" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="360" y="316" text-anchor="middle" fill="#18324B" font-family="Inter, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="0">Stanchat</text>
+  <defs>
+    <clipPath id="left-corner">
+      <path d="M36 35H90C69 52 58 75 58 105C58 132 70 152 91 170H36C12 170 -8 150 -8 124V80C-8 55 12 35 36 35Z"/>
+    </clipPath>
+  </defs>
+</svg>

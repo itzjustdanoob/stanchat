@@ -1,5 +1,6 @@
 const API_ROOT = `${window.location.origin}/api`;
 const STORAGE_KEY = 'stanchat.session';
+const VOTES_STORAGE_PREFIX = 'stanchat.votes.';
 
 const FLAIRS = [
   { name: 'All', label: 'All posts', colorClass: 'color-general' },
@@ -17,11 +18,24 @@ const state = {
   filter: 'All',
   isLoading: true,
   menuOpen: false,
+  commentErrors: new Map(),
+  commentLoadingIds: new Set(),
+  commentSubmittingIds: new Set(),
+  commentsByPost: {},
   posts: [],
+  reset: {
+    email: '',
+    isLoading: false,
+    message: '',
+    status: '',
+    step: 'request',
+  },
   search: '',
   selectedPostId: null,
   sort: 'hot',
   user: null,
+  userVotes: {},
+  voteErrors: new Map(),
   votingIds: new Set(),
 };
 
@@ -39,6 +53,9 @@ const elements = {
   authUsername: document.querySelector('#authUsername'),
   composeCard: document.querySelector('#composeCard'),
   feedList: document.querySelector('#feedList'),
+  feedTools: document.querySelector('.feed-tools'),
+  forgotPage: document.querySelector('#forgotPage'),
+  forgotPasswordLink: document.querySelector('#forgotPasswordLink'),
   menuButton: document.querySelector('#menuButton'),
   mobileFilters: document.querySelector('#mobileFilters'),
   postDetail: document.querySelector('#postDetail'),
@@ -51,6 +68,7 @@ const elements = {
   topbarActions: document.querySelector('#topbarActions'),
   trendList: document.querySelector('#trendList'),
   usernameField: document.querySelector('#usernameField'),
+  welcomeBand: document.querySelector('.welcome-band'),
   welcomeMetrics: document.querySelector('#welcomeMetrics'),
 };
 
@@ -103,15 +121,71 @@ function getAuthor(post) {
   return `Student ${String(post.user_id).slice(0, 6)}`;
 }
 
+function getCommentAuthor(comment) {
+  if (state.user && comment.user_id === state.user.id) return state.user.username;
+  if (!comment.user_id) return 'Stanchat student';
+  return `Student ${String(comment.user_id).slice(0, 6)}`;
+}
+
+function normalizeComment(comment) {
+  return {
+    id: comment.id || `${comment.post_id}-${comment.created_at || Date.now()}`,
+    content: comment.content || '',
+    post_id: comment.post_id || '',
+    user_id: comment.user_id || '',
+    created_at: comment.created_at || new Date().toISOString(),
+  };
+}
+
+function getVotesStorageKey(userId) {
+  return `${VOTES_STORAGE_PREFIX}${userId}`;
+}
+
+function loadUserVotes(userId) {
+  if (!userId) return {};
+
+  try {
+    const raw = localStorage.getItem(getVotesStorageKey(userId));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    localStorage.removeItem(getVotesStorageKey(userId));
+    return {};
+  }
+}
+
+function saveUserVote(postId, direction) {
+  if (!state.user) return;
+
+  state.userVotes = {
+    ...state.userVotes,
+    [postId]: direction,
+  };
+  localStorage.setItem(getVotesStorageKey(state.user.id), JSON.stringify(state.userVotes));
+}
+
+function getUserVote(postId) {
+  return state.user ? state.userVotes[postId] : '';
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isForgotPasswordPage() {
+  return window.location.pathname === '/forgot-password';
+}
+
 function saveSession(session) {
   if (!session) {
     localStorage.removeItem(STORAGE_KEY);
     state.user = null;
+    state.userVotes = {};
     return;
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   state.user = session.user;
+  state.userVotes = loadUserVotes(session.user.id);
 }
 
 function loadSession() {
@@ -119,7 +193,10 @@ function loadSession() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const session = JSON.parse(raw);
-    if (session && session.user) state.user = session.user;
+    if (session && session.user) {
+      state.user = session.user;
+      state.userVotes = loadUserVotes(session.user.id);
+    }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -156,6 +233,28 @@ async function loadPosts() {
     state.error = error.message || 'Could not load posts.';
   } finally {
     state.isLoading = false;
+    render();
+  }
+}
+
+async function loadComments(postId, force = false) {
+  if (!force && state.commentsByPost[postId]) return;
+  if (state.commentLoadingIds.has(postId)) return;
+
+  state.commentLoadingIds.add(postId);
+  state.commentErrors.delete(postId);
+  render();
+
+  try {
+    const comments = await apiFetch(`/posts/${postId}/comments`);
+    state.commentsByPost = {
+      ...state.commentsByPost,
+      [postId]: Array.isArray(comments) ? comments.map(normalizeComment) : [],
+    };
+  } catch (error) {
+    state.commentErrors.set(postId, error.message || 'Could not load comments.');
+  } finally {
+    state.commentLoadingIds.delete(postId);
     render();
   }
 }
@@ -209,21 +308,194 @@ async function submitPost(event) {
   }
 }
 
-async function votePost(postId) {
+async function votePost(postId, direction = 'up') {
   if (state.votingIds.has(postId)) return;
+  if (!state.user) {
+    state.voteErrors.set(postId, 'Log in to vote.');
+    openAuth('login');
+    render();
+    return;
+  }
 
+  if (getUserVote(postId)) {
+    state.voteErrors.set(postId, 'You already voted.');
+    render();
+    return;
+  }
+
+  const endpoint = direction === 'down' ? 'downvote' : 'vote';
   state.votingIds.add(postId);
+  state.voteErrors.delete(postId);
   render();
 
   try {
-    const updated = await apiFetch(`/posts/${postId}/vote`, { method: 'POST' });
+    const updated = await apiFetch(`/posts/${postId}/${endpoint}`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: state.user.id }),
+    });
     const nextPost = normalizePost(updated);
     state.posts = state.posts.map((post) => post.id === postId ? nextPost : post);
+    saveUserVote(postId, direction);
   } catch (error) {
-    state.error = error.message || 'Could not vote on that post.';
+    state.voteErrors.set(postId, error.message || 'Could not update this vote.');
   } finally {
     state.votingIds.delete(postId);
     render();
+  }
+}
+
+async function submitComment(event) {
+  event.preventDefault();
+
+  if (!state.user) {
+    openAuth('login');
+    return;
+  }
+
+  const form = event.target;
+  const postId = form.dataset.commentPostId;
+  const content = String(new FormData(form).get('content') || '').trim();
+
+  if (!content) {
+    state.commentErrors.set(postId, 'Write a comment first.');
+    renderPostDetail();
+    return;
+  }
+
+  state.commentSubmittingIds.add(postId);
+  state.commentErrors.delete(postId);
+  renderPostDetail();
+
+  try {
+    const created = await apiFetch(`/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({
+        content,
+        user_id: state.user.id,
+      }),
+    });
+    const nextComment = normalizeComment(created);
+    state.commentsByPost = {
+      ...state.commentsByPost,
+      [postId]: [...(state.commentsByPost[postId] || []), nextComment],
+    };
+    form.reset();
+  } catch (error) {
+    state.commentErrors.set(postId, error.message || 'Could not post comment.');
+  } finally {
+    state.commentSubmittingIds.delete(postId);
+    renderPostDetail();
+  }
+}
+
+async function submitForgotPassword(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const email = String(new FormData(form).get('email') || '').trim().toLowerCase();
+
+  if (!isValidEmail(email)) {
+    state.reset = {
+      ...state.reset,
+      email,
+      message: 'Enter a valid email address.',
+      status: 'error',
+    };
+    renderForgotPage();
+    return;
+  }
+
+  state.reset = {
+    ...state.reset,
+    email,
+    isLoading: true,
+    message: 'Sending reset code...',
+    status: '',
+  };
+  renderForgotPage();
+
+  try {
+    const payload = await apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    state.reset = {
+      ...state.reset,
+      email,
+      isLoading: false,
+      message: payload?.message || 'Reset code sent to your email.',
+      status: 'success',
+      step: 'reset',
+    };
+  } catch (error) {
+    state.reset = {
+      ...state.reset,
+      isLoading: false,
+      message: error.message || 'Could not send a reset code.',
+      status: 'error',
+    };
+  } finally {
+    renderForgotPage();
+  }
+}
+
+async function submitPasswordReset(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const formData = new FormData(form);
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const code = String(formData.get('code') || '').trim();
+  const newPassword = String(formData.get('newPassword') || '');
+
+  if (!isValidEmail(email)) {
+    state.reset = { ...state.reset, email, message: 'Enter a valid email address.', status: 'error' };
+    renderForgotPage();
+    return;
+  }
+
+  if (!/^\d{6}$/.test(code)) {
+    state.reset = { ...state.reset, email, message: 'Enter the 6-digit reset code.', status: 'error' };
+    renderForgotPage();
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    state.reset = { ...state.reset, email, message: 'Use at least 6 characters for the new password.', status: 'error' };
+    renderForgotPage();
+    return;
+  }
+
+  state.reset = {
+    ...state.reset,
+    email,
+    isLoading: true,
+    message: 'Resetting password...',
+    status: '',
+  };
+  renderForgotPage();
+
+  try {
+    const payload = await apiFetch('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+    state.reset = {
+      email: '',
+      isLoading: false,
+      message: payload?.message || 'Password reset successfully.',
+      status: 'success',
+      step: 'done',
+    };
+  } catch (error) {
+    state.reset = {
+      ...state.reset,
+      isLoading: false,
+      message: error.message || 'Could not reset the password.',
+      status: 'error',
+    };
+  } finally {
+    renderForgotPage();
   }
 }
 
@@ -410,17 +682,33 @@ function renderFeed() {
   elements.feedList.innerHTML = posts.map(renderPostCard).join('');
 }
 
+function renderVoteControls(post) {
+  const voting = state.votingIds.has(post.id);
+  const voteError = state.voteErrors.get(post.id);
+  const userVote = getUserVote(post.id);
+  const disabled = voting || Boolean(userVote);
+  const votedText = userVote === 'up' ? 'Upvoted' : 'Downvoted';
+
+  return `
+    <div class="vote-stack">
+      <button class="vote-button ${userVote === 'up' ? 'selected' : ''}" type="button" data-vote-id="${escapeHtml(post.id)}" data-vote-direction="up" ${disabled ? 'disabled' : ''} aria-label="Upvote ${escapeHtml(post.title)}">▲</button>
+      <span class="vote-count">${post.votes}</span>
+      <button class="vote-button down ${userVote === 'down' ? 'selected' : ''}" type="button" data-vote-id="${escapeHtml(post.id)}" data-vote-direction="down" ${disabled ? 'disabled' : ''} aria-label="Downvote ${escapeHtml(post.title)}">▼</button>
+      ${userVote ? `<p class="vote-note">${votedText}</p>` : ''}
+      ${voteError ? `<p class="vote-error">${escapeHtml(voteError)}</p>` : ''}
+    </div>
+  `;
+}
+
 function renderPostCard(post) {
   const flair = getFlair(post.flair);
-  const voting = state.votingIds.has(post.id);
   const excerpt = post.content.length > 260 ? `${post.content.slice(0, 260)}...` : post.content;
+  const comments = state.commentsByPost[post.id];
+  const commentLabel = comments ? `${comments.length} comments` : 'Comments';
 
   return `
     <article class="post-card" data-post-id="${escapeHtml(post.id)}">
-      <div class="vote-stack">
-        <button class="vote-button" type="button" data-vote-id="${escapeHtml(post.id)}" ${voting ? 'disabled' : ''} aria-label="Upvote ${escapeHtml(post.title)}">▲</button>
-        <span class="vote-count">${post.votes}</span>
-      </div>
+      ${renderVoteControls(post)}
       <div class="post-content">
         <div class="post-meta">
           <span class="flair-pill"><i class="flair-dot ${flair.colorClass}" aria-hidden="true"></i>${escapeHtml(flair.label)}</span>
@@ -431,7 +719,7 @@ function renderPostCard(post) {
         <button class="post-title" type="button" data-open-post="${escapeHtml(post.id)}">${escapeHtml(post.title)}</button>
         <p class="post-excerpt">${escapeHtml(excerpt)}</p>
         <div class="post-actions">
-          <span class="chip">Discussion</span>
+          <button class="chip chip-button" type="button" data-open-post="${escapeHtml(post.id)}">${commentLabel}</button>
           <span class="chip">${post.content.length} chars</span>
         </div>
       </div>
@@ -489,20 +777,70 @@ function renderTrends() {
   `).join('');
 }
 
+function renderCommentsSection(postId) {
+  const comments = state.commentsByPost[postId] || [];
+  const isLoading = state.commentLoadingIds.has(postId);
+  const isSubmitting = state.commentSubmittingIds.has(postId);
+  const error = state.commentErrors.get(postId);
+  const commentsHtml = comments.length
+    ? comments.map((comment) => `
+      <article class="comment-item">
+        <div class="comment-avatar">${escapeHtml(getCommentAuthor(comment).slice(0, 1).toUpperCase())}</div>
+        <div>
+          <div class="comment-meta">
+            <strong>${escapeHtml(getCommentAuthor(comment))}</strong>
+            <time datetime="${escapeHtml(comment.created_at)}">${formatDate(comment.created_at)}</time>
+          </div>
+          <p>${escapeHtml(comment.content)}</p>
+        </div>
+      </article>
+    `).join('')
+    : '';
+
+  return `
+    <section class="comments-section">
+      <div class="comments-heading">
+        <div>
+          <p class="eyebrow">Discussion</p>
+          <h2>Comments</h2>
+        </div>
+        <button class="ghost-button" type="button" data-refresh-comments="${escapeHtml(postId)}" ${isLoading ? 'disabled' : ''}>Refresh</button>
+      </div>
+      ${isLoading ? '<p class="comment-state">Loading comments...</p>' : ''}
+      ${error ? `<p class="form-message error">${escapeHtml(error)}</p>` : ''}
+      ${!isLoading && !comments.length ? '<p class="reply-empty">No comments yet. Start the discussion.</p>' : ''}
+      ${comments.length ? `<div class="comment-list">${commentsHtml}</div>` : ''}
+      ${state.user ? `
+        <form class="comment-form" data-comment-post-id="${escapeHtml(postId)}">
+          <label class="field-shell">
+            <span>Add a comment</span>
+            <textarea name="content" maxlength="1000" placeholder="Share a helpful answer, follow-up, or campus detail."></textarea>
+          </label>
+          <div class="comment-actions">
+            <span class="profile-meta">Posting as ${escapeHtml(state.user.username)}</span>
+            <button class="primary-button" type="submit" ${isSubmitting ? 'disabled' : ''}>${isSubmitting ? 'Posting...' : 'Comment'}</button>
+          </div>
+        </form>
+      ` : `
+        <div class="comment-login">
+          <p>Log in to add a comment.</p>
+          <button class="primary-button" type="button" data-open-auth="login">Log in</button>
+        </div>
+      `}
+    </section>
+  `;
+}
+
 function renderPostDetail() {
   const post = state.posts.find((item) => item.id === state.selectedPostId);
   if (!post) return;
 
   const flair = getFlair(post.flair);
-  const voting = state.votingIds.has(post.id);
 
   elements.postDetail.innerHTML = `
     <button class="close-button" type="button" data-close-post aria-label="Close">×</button>
     <div class="detail-inner">
-      <div class="vote-stack">
-        <button class="vote-button" type="button" data-vote-id="${escapeHtml(post.id)}" ${voting ? 'disabled' : ''}>▲</button>
-        <span class="vote-count">${post.votes}</span>
-      </div>
+      ${renderVoteControls(post)}
       <div>
         <div class="post-meta">
           <span class="flair-pill"><i class="flair-dot ${flair.colorClass}" aria-hidden="true"></i>${escapeHtml(flair.label)}</span>
@@ -515,10 +853,83 @@ function renderPostDetail() {
       </div>
     </div>
     <div class="detail-footer">
-      <h2>Replies</h2>
-      <p class="reply-empty">No replies yet.</p>
+      ${renderCommentsSection(post.id)}
     </div>
   `;
+}
+
+function renderForgotPage() {
+  const { email, isLoading, message, status, step } = state.reset;
+  const messageClass = status ? `form-message ${status}` : 'form-message';
+
+  if (step === 'done') {
+    elements.forgotPage.innerHTML = `
+      <section class="forgot-card">
+        <p class="eyebrow">Password reset</p>
+        <h1>You can log in now.</h1>
+        <p class="forgot-copy">${escapeHtml(message || 'Password reset successfully.')}</p>
+        <div class="forgot-actions">
+          <button class="ghost-button" type="button" data-go-home>Back to feed</button>
+          <button class="primary-button" type="button" data-open-auth="login">Log in</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const isResetStep = step === 'reset';
+  elements.forgotPage.innerHTML = `
+    <section class="forgot-card">
+      <p class="eyebrow">${isResetStep ? 'Check your email' : 'Account recovery'}</p>
+      <h1>${isResetStep ? 'Enter your reset code.' : 'Reset your password.'}</h1>
+      <p class="forgot-copy">
+        ${isResetStep
+          ? 'Use the 6-digit code we sent, then choose a new password.'
+          : 'Enter the email on your Stanchat account and we will send you a reset code.'}
+      </p>
+      <form class="stacked-form" id="${isResetStep ? 'resetPasswordForm' : 'forgotPasswordForm'}" novalidate>
+        <label>
+          <span>Email</span>
+          <input name="email" type="email" autocomplete="email" value="${escapeHtml(email)}" required />
+        </label>
+        ${isResetStep ? `
+          <label>
+            <span>Reset code</span>
+            <input name="code" inputmode="numeric" maxlength="6" placeholder="123456" required />
+          </label>
+          <label>
+            <span>New password</span>
+            <input name="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+        ` : ''}
+        <p class="${messageClass}">${escapeHtml(message)}</p>
+        <div class="forgot-actions">
+          <button class="ghost-button" type="button" data-go-home>Back to feed</button>
+          <button class="primary-button" type="submit" ${isLoading ? 'disabled' : ''}>
+            ${isLoading ? 'Working...' : isResetStep ? 'Reset password' : 'Send code'}
+          </button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function renderPage() {
+  const isForgot = isForgotPasswordPage();
+  const homeSections = [
+    elements.mobileFilters,
+    elements.welcomeBand,
+    elements.composeCard,
+    elements.feedTools,
+    elements.feedList,
+  ];
+
+  elements.forgotPage.hidden = !isForgot;
+  homeSections.forEach((section) => {
+    section.classList.toggle('home-view-hidden', isForgot);
+  });
+
+  if (isForgot) renderForgotPage();
 }
 
 function renderAuthModal() {
@@ -529,6 +940,7 @@ function renderAuthModal() {
   elements.authModeToggle.textContent = isLogin ? 'Create a new account' : 'I already have an account';
   elements.usernameField.style.display = isLogin ? 'none' : 'grid';
   elements.authUsername.required = !isLogin;
+  elements.forgotPasswordLink.hidden = !isLogin;
 }
 
 function render() {
@@ -541,6 +953,7 @@ function render() {
   renderTrends();
   renderAuthModal();
   if (state.selectedPostId) renderPostDetail();
+  renderPage();
 }
 
 function openAuth(mode = 'login') {
@@ -565,6 +978,7 @@ function openPost(postId) {
   renderPostDetail();
   elements.postModal.classList.add('open');
   elements.postModal.setAttribute('aria-hidden', 'false');
+  loadComments(postId);
 }
 
 function closePost() {
@@ -579,7 +993,32 @@ function setFilter(filter) {
   render();
 }
 
+function goToForgotPassword() {
+  closeAuth();
+  if (!isForgotPasswordPage()) {
+    history.pushState({}, '', '/forgot-password');
+  }
+  render();
+}
+
+function goHome() {
+  if (isForgotPasswordPage()) {
+    history.pushState({}, '', '/');
+  }
+  render();
+}
+
 function handleGlobalClick(event) {
+  if (event.target.closest('[data-go-forgot]')) {
+    goToForgotPassword();
+    return;
+  }
+
+  if (event.target.closest('[data-go-home]')) {
+    goHome();
+    return;
+  }
+
   const authButton = event.target.closest('[data-open-auth]');
   if (authButton) {
     openAuth(authButton.dataset.openAuth);
@@ -643,11 +1082,16 @@ function bindEvents() {
     if (event.target.id === 'composeForm') submitPost(event);
   });
 
+  elements.forgotPage.addEventListener('submit', (event) => {
+    if (event.target.id === 'forgotPasswordForm') submitForgotPassword(event);
+    if (event.target.id === 'resetPasswordForm') submitPasswordReset(event);
+  });
+
   elements.feedList.addEventListener('click', (event) => {
     const voteButton = event.target.closest('[data-vote-id]');
     if (voteButton) {
       event.stopPropagation();
-      votePost(voteButton.dataset.voteId);
+      votePost(voteButton.dataset.voteId, voteButton.dataset.voteDirection);
       return;
     }
 
@@ -664,9 +1108,21 @@ function bindEvents() {
       return;
     }
 
+    const refreshCommentsButton = event.target.closest('[data-refresh-comments]');
+    if (refreshCommentsButton) {
+      loadComments(refreshCommentsButton.dataset.refreshComments, true);
+      return;
+    }
+
     const voteButton = event.target.closest('[data-vote-id]');
-    if (voteButton) votePost(voteButton.dataset.voteId);
+    if (voteButton) votePost(voteButton.dataset.voteId, voteButton.dataset.voteDirection);
   });
+
+  elements.postDetail.addEventListener('submit', (event) => {
+    if (event.target.matches('.comment-form')) submitComment(event);
+  });
+
+  window.addEventListener('popstate', render);
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;

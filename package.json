@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
-    "test": "node --check index.js && node --check routes/auth.js && node --check routes/posts.js && node --check routes/users.js && node --check public/app.js"
+    "test": "node --check index.js && node --check routes/auth.js && node --check routes/forgot-password.js && node --check routes/posts.js && node --check routes/users.js && node --check public/app.js"
   },
   "keywords": [],
   "author": "",

@@ -1,12 +1,56 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { Resend } = require('resend');
 const supabase = require('../supabase');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend = null;
+try {
+  const { Resend } = require('resend');
+  if (process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+} catch {
+  resend = null;
+}
 
 const resetTokens = new Map();
+
+async function sendResetEmail({ email, username, code }) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('Password reset email is not configured');
+  }
+
+  const emailPayload = {
+    from: 'StanChat <onboarding@resend.dev>',
+    to: email,
+    subject: 'Your StanChat password reset code',
+    html: `
+      <h2>Password Reset</h2>
+      <p>Hi ${username},</p>
+      <p>Your reset code is: <strong style="font-size:24px">${code}</strong></p>
+      <p>This code expires in 15 minutes.</p>
+      <p>If you didn't request this, ignore this email.</p>
+    `,
+  };
+
+  if (resend) {
+    await resend.emails.send(emailPayload);
+    return;
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(emailPayload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not send reset email');
+  }
+}
 
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
@@ -24,18 +68,12 @@ router.post('/forgot-password', async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   resetTokens.set(email, { code, expires: Date.now() + 15 * 60 * 1000 });
 
-  await resend.emails.send({
-    from: 'StanChat <onboarding@resend.dev>',
-    to: email,
-    subject: 'Your StanChat password reset code',
-    html: `
-      <h2>Password Reset</h2>
-      <p>Hi ${user.username},</p>
-      <p>Your reset code is: <strong style="font-size:24px">${code}</strong></p>
-      <p>This code expires in 15 minutes.</p>
-      <p>If you didn't request this, ignore this email.</p>
-    `,
-  });
+  try {
+    await sendResetEmail({ email, username: user.username, code });
+  } catch (sendError) {
+    resetTokens.delete(email);
+    return res.status(500).json({ error: sendError.message });
+  }
 
   res.json({ message: 'Reset code sent to your email' });
 });

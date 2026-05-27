@@ -10,11 +10,8 @@
     <div class="app-shell">
       <aside class="left-rail" aria-label="Primary">
         <a class="brand" href="/" aria-label="Stanchat home">
-          <span class="brand-mark">S</span>
-          <span>
-            <strong>Stanchat</strong>
-            <small>College forum</small>
-          </span>
+          <img class="brand-logo" src="/assets/stanchat-logo.svg" alt="Stanchat" />
+          <small>College forum</small>
         </a>
 
         <nav class="nav-stack" id="sideFilters" aria-label="Post filters"></nav>
@@ -36,8 +33,7 @@
             <span></span>
           </button>
           <div class="mobile-brand">
-            <span class="brand-mark">S</span>
-            <strong>Stanchat</strong>
+            <img class="mobile-logo" src="/assets/stanchat-logo.svg" alt="Stanchat" />
           </div>
           <label class="search-field">
             <span aria-hidden="true">⌕</span>
@@ -45,6 +41,8 @@
           </label>
           <div class="topbar-actions" id="topbarActions"></div>
         </header>
+
+        <section class="forgot-page" id="forgotPage" hidden></section>
 
         <section class="mobile-filter-panel" id="mobileFilters" aria-label="Mobile filters"></section>
 
@@ -123,7 +121,10 @@
           <p class="form-message" id="authMessage"></p>
           <button class="primary-button" id="authSubmit" type="submit">Log in</button>
         </form>
-        <button class="text-button" id="authModeToggle" type="button">Create a new account</button>
+        <div class="auth-links">
+          <button class="text-button" id="forgotPasswordLink" type="button" data-go-forgot>Forgot password?</button>
+          <button class="text-button" id="authModeToggle" type="button">Create a new account</button>
+        </div>
       </section>
     </div>
 
