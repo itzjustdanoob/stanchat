@@ -8,6 +8,7 @@ const postsRouter = require('./routes/posts');
 const usersRouter = require('./routes/users');
 const authRouter = require('./routes/auth');
 const forgotPasswordRouter = require('./routes/forgot-password');
+const settingsRouter = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -20,6 +21,7 @@ app.use('/api/posts', postsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/auth', forgotPasswordRouter);
+app.use('/api/settings', settingsRouter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 

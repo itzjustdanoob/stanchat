@@ -1,3 +1,4 @@
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
