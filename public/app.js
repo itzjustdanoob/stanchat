@@ -99,7 +99,7 @@ function getFlair(flairName) {
 }
 
 function formatDate(value) {
-  const date = new Date(value);
+const date = new Date(value.endsWith('Z') ? value : value + 'Z');
   if (Number.isNaN(date.getTime())) return 'recently';
 
   const diff = Date.now() - date.getTime();
