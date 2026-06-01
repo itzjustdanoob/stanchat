@@ -32,7 +32,13 @@ const state = {
   },
   search: '',
   selectedPostId: null,
+  settings: {
+    isLoading: false,
+    messages: {},
+    profile: null,
+  },
   sort: 'hot',
+  token: '',
   user: null,
   userVotes: {},
   voteErrors: new Map(),
@@ -63,6 +69,7 @@ const elements = {
   profilePanel: document.querySelector('#profilePanel'),
   refreshButton: document.querySelector('#refreshButton'),
   searchInput: document.querySelector('#searchInput'),
+  settingsPage: document.querySelector('#settingsPage'),
   sideFilters: document.querySelector('#sideFilters'),
   sortSelect: document.querySelector('#sortSelect'),
   topbarActions: document.querySelector('#topbarActions'),
@@ -163,6 +170,25 @@ function saveUserVote(postId, direction) {
   localStorage.setItem(getVotesStorageKey(state.user.id), JSON.stringify(state.userVotes));
 }
 
+function updateSessionUser(updates) {
+  if (!state.user) return;
+
+  const nextUser = { ...state.user, ...updates };
+  state.user = nextUser;
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const session = raw ? JSON.parse(raw) : {};
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...session,
+      token: state.token || session.token,
+      user: nextUser,
+    }));
+  } catch {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: state.token, user: nextUser }));
+  }
+}
+
 function getUserVote(postId) {
   return state.user ? state.userVotes[postId] : '';
 }
@@ -175,16 +201,23 @@ function isForgotPasswordPage() {
   return window.location.pathname === '/forgot-password';
 }
 
+function isSettingsPage() {
+  return window.location.pathname === '/settings';
+}
+
 function saveSession(session) {
   if (!session) {
     localStorage.removeItem(STORAGE_KEY);
     state.user = null;
+    state.token = '';
     state.userVotes = {};
+    state.settings.profile = null;
     return;
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   state.user = session.user;
+  state.token = session.token || '';
   state.userVotes = loadUserVotes(session.user.id);
 }
 
@@ -195,6 +228,7 @@ function loadSession() {
     const session = JSON.parse(raw);
     if (session && session.user) {
       state.user = session.user;
+      state.token = session.token || '';
       state.userVotes = loadUserVotes(session.user.id);
     }
   } catch {
@@ -207,6 +241,7 @@ async function apiFetch(path, options = {}) {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
       ...(options.headers || {}),
     },
   });
@@ -499,6 +534,189 @@ async function submitPasswordReset(event) {
   }
 }
 
+function setSettingsMessage(section, status, message) {
+  state.settings.messages = {
+    ...state.settings.messages,
+    [section]: { status, message },
+  };
+}
+
+function getSettingsMessage(section) {
+  return state.settings.messages[section] || { status: '', message: '' };
+}
+
+async function loadSettingsProfile(force = false) {
+  if (!state.user || !state.token) return;
+  if (state.settings.profile && !force) return;
+
+  state.settings.isLoading = true;
+  setSettingsMessage('profile', '', 'Loading settings...');
+  renderSettingsPage();
+
+  try {
+    const profile = await apiFetch('/settings/profile');
+    state.settings.profile = profile;
+    updateSessionUser({
+      email: profile.email,
+      username: profile.username,
+    });
+    setSettingsMessage('profile', '', '');
+  } catch (error) {
+    setSettingsMessage('profile', 'error', error.message || 'Could not load settings.');
+  } finally {
+    state.settings.isLoading = false;
+    renderSettingsPage();
+  }
+}
+
+async function submitSettingsProfile(event) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+  const display_name = String(formData.get('display_name') || '').trim();
+  const bio = String(formData.get('bio') || '').trim();
+
+  setSettingsMessage('profile', '', 'Saving profile...');
+  renderSettingsPage();
+
+  try {
+    const profile = await apiFetch('/settings/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ display_name, bio }),
+    });
+    state.settings.profile = { ...state.settings.profile, ...profile };
+    setSettingsMessage('profile', 'success', 'Profile updated.');
+  } catch (error) {
+    setSettingsMessage('profile', 'error', error.message || 'Could not update profile.');
+  } finally {
+    renderSettingsPage();
+  }
+}
+
+async function submitSettingsUsername(event) {
+  event.preventDefault();
+
+  const username = String(new FormData(event.target).get('username') || '').trim();
+  if (!username) {
+    setSettingsMessage('username', 'error', 'Username is required.');
+    renderSettingsPage();
+    return;
+  }
+
+  setSettingsMessage('username', '', 'Saving username...');
+  renderSettingsPage();
+
+  try {
+    const user = await apiFetch('/settings/username', {
+      method: 'PATCH',
+      body: JSON.stringify({ username }),
+    });
+    state.settings.profile = { ...state.settings.profile, ...user };
+    updateSessionUser({ username: user.username });
+    setSettingsMessage('username', 'success', 'Username updated.');
+  } catch (error) {
+    setSettingsMessage('username', 'error', error.message || 'Could not update username.');
+  } finally {
+    renderSettingsPage();
+  }
+}
+
+async function submitSettingsEmail(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const formData = new FormData(form);
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const password = String(formData.get('password') || '');
+
+  if (!isValidEmail(email)) {
+    setSettingsMessage('email', 'error', 'Enter a valid email address.');
+    renderSettingsPage();
+    return;
+  }
+
+  if (!password) {
+    setSettingsMessage('email', 'error', 'Enter your password to change email.');
+    renderSettingsPage();
+    return;
+  }
+
+  setSettingsMessage('email', '', 'Saving email...');
+  renderSettingsPage();
+
+  try {
+    const user = await apiFetch('/settings/email', {
+      method: 'PATCH',
+      body: JSON.stringify({ email, password }),
+    });
+    form.reset();
+    state.settings.profile = { ...state.settings.profile, ...user };
+    updateSessionUser({ email: user.email });
+    setSettingsMessage('email', 'success', 'Email updated.');
+  } catch (error) {
+    setSettingsMessage('email', 'error', error.message || 'Could not update email.');
+  } finally {
+    renderSettingsPage();
+  }
+}
+
+async function submitSettingsPassword(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const formData = new FormData(form);
+  const currentPassword = String(formData.get('currentPassword') || '');
+  const newPassword = String(formData.get('newPassword') || '');
+
+  if (!currentPassword || newPassword.length < 6) {
+    setSettingsMessage('password', 'error', 'Enter your current password and a new password with at least 6 characters.');
+    renderSettingsPage();
+    return;
+  }
+
+  setSettingsMessage('password', '', 'Updating password...');
+  renderSettingsPage();
+
+  try {
+    const payload = await apiFetch('/settings/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    form.reset();
+    setSettingsMessage('password', 'success', payload?.message || 'Password updated.');
+  } catch (error) {
+    setSettingsMessage('password', 'error', error.message || 'Could not update password.');
+  } finally {
+    renderSettingsPage();
+  }
+}
+
+async function submitDeleteAccount(event) {
+  event.preventDefault();
+
+  const password = String(new FormData(event.target).get('password') || '');
+  if (!password) {
+    setSettingsMessage('delete', 'error', 'Enter your password to delete the account.');
+    renderSettingsPage();
+    return;
+  }
+
+  setSettingsMessage('delete', '', 'Deleting account...');
+  renderSettingsPage();
+
+  try {
+    await apiFetch('/settings/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+    });
+    saveSession(null);
+    goHome();
+  } catch (error) {
+    setSettingsMessage('delete', 'error', error.message || 'Could not delete account.');
+    renderSettingsPage();
+  }
+}
+
 async function submitAuth(event) {
   event.preventDefault();
 
@@ -576,6 +794,7 @@ function renderTopbar() {
   if (state.user) {
     elements.topbarActions.innerHTML = `
       <span class="chip">${escapeHtml(state.user.username)}</span>
+      <button class="ghost-button" type="button" data-go-settings>Settings</button>
       <button class="ghost-button" type="button" data-sign-out>Sign out</button>
     `;
     return;
@@ -758,6 +977,7 @@ function renderProfile() {
         <strong>${ownPosts}</strong>
         <span>posts from you</span>
       </div>
+      <button class="ghost-button" type="button" data-go-settings>Settings</button>
     </div>
   `;
 }
@@ -914,8 +1134,124 @@ function renderForgotPage() {
   `;
 }
 
+function renderSettingsMessage(section) {
+  const { status, message } = getSettingsMessage(section);
+  return `<p class="${status ? `form-message ${status}` : 'form-message'}">${escapeHtml(message)}</p>`;
+}
+
+function renderSettingsPage() {
+  if (!state.user) {
+    elements.settingsPage.innerHTML = `
+      <section class="settings-shell">
+        <div class="settings-hero">
+          <p class="eyebrow">Settings</p>
+          <h1>Log in to manage your Stanchat account.</h1>
+          <button class="primary-button" type="button" data-open-auth="login">Log in</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const profile = state.settings.profile || state.user;
+  const displayName = profile.display_name || '';
+  const bio = profile.bio || '';
+
+  elements.settingsPage.innerHTML = `
+    <section class="settings-shell">
+      <div class="settings-hero">
+        <div>
+          <p class="eyebrow">Account settings</p>
+          <h1>Manage your Stanchat profile.</h1>
+        </div>
+        <button class="ghost-button" type="button" data-refresh-settings ${state.settings.isLoading ? 'disabled' : ''}>Refresh</button>
+      </div>
+
+      <div class="settings-grid">
+        <form class="settings-card" id="settingsProfileForm">
+          <div>
+            <h2>Profile</h2>
+            <p class="settings-copy">Update your public name and student bio.</p>
+          </div>
+          <label class="field-shell">
+            <span>Display name</span>
+            <input class="input-box" name="display_name" value="${escapeHtml(displayName)}" placeholder="How should people see your name?" />
+          </label>
+          <label class="field-shell">
+            <span>Bio</span>
+            <textarea name="bio" maxlength="500" placeholder="College, major, goals, or what you can help with.">${escapeHtml(bio)}</textarea>
+          </label>
+          ${renderSettingsMessage('profile')}
+          <button class="primary-button" type="submit">Save profile</button>
+        </form>
+
+        <form class="settings-card" id="settingsUsernameForm">
+          <div>
+            <h2>Username</h2>
+            <p class="settings-copy">Choose the handle shown around Stanchat.</p>
+          </div>
+          <label class="field-shell">
+            <span>Username</span>
+            <input class="input-box" name="username" value="${escapeHtml(profile.username || '')}" required />
+          </label>
+          ${renderSettingsMessage('username')}
+          <button class="primary-button" type="submit">Save username</button>
+        </form>
+
+        <form class="settings-card" id="settingsEmailForm" novalidate>
+          <div>
+            <h2>Email</h2>
+            <p class="settings-copy">Confirm with your password before changing email.</p>
+          </div>
+          <label class="field-shell">
+            <span>Email</span>
+            <input class="input-box" name="email" type="email" value="${escapeHtml(profile.email || '')}" required />
+          </label>
+          <label class="field-shell">
+            <span>Password</span>
+            <input class="input-box" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          ${renderSettingsMessage('email')}
+          <button class="primary-button" type="submit">Save email</button>
+        </form>
+
+        <form class="settings-card" id="settingsPasswordForm">
+          <div>
+            <h2>Password</h2>
+            <p class="settings-copy">Use at least 6 characters for the new password.</p>
+          </div>
+          <label class="field-shell">
+            <span>Current password</span>
+            <input class="input-box" name="currentPassword" type="password" autocomplete="current-password" required />
+          </label>
+          <label class="field-shell">
+            <span>New password</span>
+            <input class="input-box" name="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+          ${renderSettingsMessage('password')}
+          <button class="primary-button" type="submit">Update password</button>
+        </form>
+
+        <form class="settings-card danger-card" id="deleteAccountForm">
+          <div>
+            <h2>Delete account</h2>
+            <p class="settings-copy">This removes your account, posts, and comments.</p>
+          </div>
+          <label class="field-shell">
+            <span>Password</span>
+            <input class="input-box" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          ${renderSettingsMessage('delete')}
+          <button class="danger-button" type="submit">Delete account</button>
+        </form>
+      </div>
+    </section>
+  `;
+}
+
 function renderPage() {
   const isForgot = isForgotPasswordPage();
+  const isSettings = isSettingsPage();
   const homeSections = [
     elements.mobileFilters,
     elements.welcomeBand,
@@ -925,11 +1261,18 @@ function renderPage() {
   ];
 
   elements.forgotPage.hidden = !isForgot;
+  elements.settingsPage.hidden = !isSettings;
   homeSections.forEach((section) => {
-    section.classList.toggle('home-view-hidden', isForgot);
+    section.classList.toggle('home-view-hidden', isForgot || isSettings);
   });
 
   if (isForgot) renderForgotPage();
+  if (isSettings) {
+    renderSettingsPage();
+    if (state.user && !state.settings.profile && !state.settings.isLoading) {
+      loadSettingsProfile();
+    }
+  }
 }
 
 function renderAuthModal() {
@@ -1001,8 +1344,22 @@ function goToForgotPassword() {
   render();
 }
 
+function goToSettings() {
+  closeAuth();
+  if (!state.user) {
+    openAuth('login');
+    return;
+  }
+
+  if (!isSettingsPage()) {
+    history.pushState({}, '', '/settings');
+  }
+  render();
+  loadSettingsProfile();
+}
+
 function goHome() {
-  if (isForgotPasswordPage()) {
+  if (isForgotPasswordPage() || isSettingsPage()) {
     history.pushState({}, '', '/');
   }
   render();
@@ -1016,6 +1373,16 @@ function handleGlobalClick(event) {
 
   if (event.target.closest('[data-go-home]')) {
     goHome();
+    return;
+  }
+
+  if (event.target.closest('[data-go-settings]')) {
+    goToSettings();
+    return;
+  }
+
+  if (event.target.closest('[data-refresh-settings]')) {
+    loadSettingsProfile(true);
     return;
   }
 
@@ -1085,6 +1452,14 @@ function bindEvents() {
   elements.forgotPage.addEventListener('submit', (event) => {
     if (event.target.id === 'forgotPasswordForm') submitForgotPassword(event);
     if (event.target.id === 'resetPasswordForm') submitPasswordReset(event);
+  });
+
+  elements.settingsPage.addEventListener('submit', (event) => {
+    if (event.target.id === 'settingsProfileForm') submitSettingsProfile(event);
+    if (event.target.id === 'settingsUsernameForm') submitSettingsUsername(event);
+    if (event.target.id === 'settingsEmailForm') submitSettingsEmail(event);
+    if (event.target.id === 'settingsPasswordForm') submitSettingsPassword(event);
+    if (event.target.id === 'deleteAccountForm') submitDeleteAccount(event);
   });
 
   elements.feedList.addEventListener('click', (event) => {
