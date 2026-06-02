@@ -27,6 +27,12 @@ The frontend is served from `public/` and talks to the existing API routes:
 - `POST /api/posts/:id/downvote`
 - `GET /api/posts/:id/comments`
 - `POST /api/posts/:id/comments`
+- `GET /api/settings/profile`
+- `PATCH /api/settings/profile`
+- `PATCH /api/settings/username`
+- `PATCH /api/settings/email`
+- `PATCH /api/settings/password`
+- `DELETE /api/settings/account`
 
 ## Frontend
 
@@ -41,4 +47,5 @@ The frontend is plain HTML, CSS, and JavaScript, so it does not need a separate 
 - comment threads on every post
 - forgot-password flow with reset code
 - Stanchat logo asset
+- account settings for profile, username, email, password, and deletion
 - responsive desktop and mobile layouts
