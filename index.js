@@ -14,14 +14,13 @@ const settingsRouter = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
-const HOST = process.env.HOST || '127.0.0.1';
 
 // Security headers
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, slow down!' }
 });
@@ -52,6 +51,6 @@ app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server running at http://${HOST}:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
 });
