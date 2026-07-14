@@ -1,6 +1,6 @@
 import type { FlairId } from "./flairs";
 
-const API_BASE = "https://stanchat.me/api";
+const API_BASE = import.meta.env.PROD ? "https://stanchat.me/api" : "/api";
 
 export interface Post {
   id: string;
