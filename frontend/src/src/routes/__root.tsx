@@ -10,7 +10,6 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
   return (
@@ -38,7 +37,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -93,8 +91,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "StanChat — the college forum" },
       { name: "twitter:description", content: "The unfiltered college forum. Vote, comment, and share what's really happening on your campus." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/faf9b32d-c78f-4894-87bf-b7e26b5ba938/id-preview-21fa595d--cf5fc3c5-fa12-424e-8456-a06d7d0bd89b.lovable.app-1783938388032.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/faf9b32d-c78f-4894-87bf-b7e26b5ba938/id-preview-21fa595d--cf5fc3c5-fa12-424e-8456-a06d7d0bd89b.lovable.app-1783938388032.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
