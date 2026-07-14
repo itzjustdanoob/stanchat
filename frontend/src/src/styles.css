@@ -1,0 +1,165 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-upvote: var(--upvote);
+  --color-downvote: var(--downvote);
+  --color-flair-admissions: var(--flair-admissions);
+  --color-flair-campus: var(--flair-campus);
+  --color-flair-career: var(--flair-career);
+  --color-flair-housing: var(--flair-housing);
+  --color-flair-events: var(--flair-events);
+  --color-flair-general: var(--flair-general);
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Warm cream paper + ink black + electric orange */
+  --paper: #f4efe6;
+  --ink: #0e0e10;
+
+  --background: #f4efe6;
+  --foreground: #0e0e10;
+  --card: #fbf7ef;
+  --card-foreground: #0e0e10;
+  --popover: #fbf7ef;
+  --popover-foreground: #0e0e10;
+  --primary: #ff4d1f;
+  --primary-foreground: #fff8f0;
+  --secondary: #ecdcc5;
+  --secondary-foreground: #0e0e10;
+  --muted: #ece4d3;
+  --muted-foreground: #6b6558;
+  --accent: #ffd166;
+  --accent-foreground: #0e0e10;
+  --destructive: #d0342c;
+  --destructive-foreground: #fff8f0;
+  --border: #0e0e10;
+  --input: #d9cfba;
+  --ring: #ff4d1f;
+
+  --upvote: #ff4d1f;
+  --downvote: #4b6cf7;
+
+  --flair-admissions: #d0342c;
+  --flair-campus: #2e7d5c;
+  --flair-career: #ff8c1a;
+  --flair-housing: #1f6feb;
+  --flair-events: #c94b8b;
+  --flair-general: #4a4a4a;
+}
+
+.dark {
+  --paper: #0e0e10;
+  --ink: #f4efe6;
+  --background: #0e0e10;
+  --foreground: #f4efe6;
+  --card: #17171a;
+  --card-foreground: #f4efe6;
+  --popover: #17171a;
+  --popover-foreground: #f4efe6;
+  --primary: #ff6b3d;
+  --primary-foreground: #0e0e10;
+  --secondary: #22222a;
+  --secondary-foreground: #f4efe6;
+  --muted: #1c1c22;
+  --muted-foreground: #a09a8c;
+  --accent: #ffd166;
+  --accent-foreground: #0e0e10;
+  --border: #f4efe6;
+  --input: #2a2a33;
+  --ring: #ff6b3d;
+  --upvote: #ff6b3d;
+  --downvote: #7a92ff;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(rgba(244, 239, 230, 0.04) 1px, transparent 1px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv02", "cv11";
+  }
+  body {
+    /* subtle paper grain */
+    background-image:
+      radial-gradient(rgba(14, 14, 16, 0.05) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+}
+
+@utility flair-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1.5px solid var(--ink);
+}
+
+@utility shadow-brutal {
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+@utility shadow-brutal-sm {
+  box-shadow: 2px 2px 0 0 var(--ink);
+}
+@utility shadow-brutal-lg {
+  box-shadow: 8px 8px 0 0 var(--ink);
+}
+
+@utility ticker {
+  animation: ticker 40s linear infinite;
+}
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
