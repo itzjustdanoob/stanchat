@@ -3,14 +3,11 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Shirt,
   FileEdit,
-  Trophy,
-  DollarSign,
   Shield,
   Sun,
   Moon,
   LogOut,
   Settings as SettingsIcon,
-  Sparkles,
   User as UserIcon,
 } from "lucide-react";
 import { Dropdown } from "./Dropdown";
@@ -77,20 +74,12 @@ export function ProfileMenu() {
           <button className={rowClass} onClick={() => go("/drafts")}>
             <FileEdit className="h-4 w-4" /> Drafts
           </button>
-          <button className={rowClass} onClick={() => go("/achievements")}>
-            <Trophy className="h-4 w-4" /> Achievements
             <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              13 unlocked
             </span>
           </button>
-          <button className={rowClass} onClick={() => go("/earn")}>
-            <DollarSign className="h-4 w-4" /> Earn
             <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Earn cash
             </span>
           </button>
-          <button className={rowClass} onClick={() => go("/premium")}>
-            <Sparkles className="h-4 w-4" /> Premium
           </button>
         </div>
 
