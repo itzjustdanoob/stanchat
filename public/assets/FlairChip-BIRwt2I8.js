@@ -1,0 +1,1 @@
+import{u as e}from"./link-FVTdYe2o.js";import{l as t}from"./SiteHeader-DZQu2IVt.js";var n=e();function r({id:e}){let r=t(e);return(0,n.jsx)(`span`,{className:`flair-chip text-white`,style:{backgroundColor:r.color},children:r.label})}export{r as t};
