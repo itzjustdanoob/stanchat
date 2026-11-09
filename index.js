@@ -13,6 +13,8 @@ const forgotPasswordRouter = require('./routes/forgot-password');
 const settingsRouter = require('./routes/settings');
 
 const app = express();
+app.set('trust proxy', 1);
+app.get('/health', (req, res) => res.status(200).send('ok'));
 const PORT = process.env.PORT || 5050;
 
 // Security headers
